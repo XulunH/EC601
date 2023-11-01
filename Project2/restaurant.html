@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Restaurant Finder</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBk3P9lPRZS7nfcWMxndl3qPUv_Hug3wm4&libraries=places&callback=initMap" async defer></script>
+    <style>
+      #legend {
+        background-color: white;
+        border: 1px solid black;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+    <script>
+      var map;
+      var service;
+      var infowindow;
+      var customMarker;
+      var restaurantMarkers = [];
+
+      function initMap() {
+        infowindow = new google.maps.InfoWindow();
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: 0, lng: 0},
+          zoom: 15
+        });
+        
+        // Add legend to the map
+        var legend = document.getElementById('legend');
+        map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(legend);
+
+        // Handle click event to place a custom marker
+        map.addListener('click', function(event) {
+          placeCustomMarker(event.latLng);
+        });
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function(position) {
+            var pos = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+
+            map.setCenter(pos);
+            loadRestaurants(pos);
+
+            // Add initial user marker
+            new google.maps.Marker({
+              position: pos,
+              map: map,
+              icon: 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+            });
+          });
+        } else {
+          alert('Geolocation is not supported by this browser.');
+        }
+      }
+
+      function loadRestaurants(location) {
+        // Remove previous restaurant markers
+        for (var i = 0; i < restaurantMarkers.length; i++) {
+          restaurantMarkers[i].setMap(null);
+        }
+        restaurantMarkers = [];
+
+        var request = {
+          location: location,
+          radius: '500',
+          type: ['restaurant']
+        };
+
+        service = new google.maps.places.PlacesService(map);
+        service.nearbySearch(request, callback);
+      }
+
+      function callback(results, status) {
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+          for (var i = 0; i < results.length; i++) {
+            createMarker(results[i]);
+          }
+        }
+      }
+
+      function createMarker(place) {
+        let color = place.price_level >= 4 ? 'red' : place.price_level >= 2 ? 'blue' : 'green';
+        var marker = new google.maps.Marker({
+          map: map,
+          position: place.geometry.location,
+          icon: `http://maps.google.com/mapfiles/ms/icons/${color}-dot.png`
+        });
+
+        restaurantMarkers.push(marker);
+
+        google.maps.event.addListener(marker, 'click', function() {
+          infowindow.setContent(place.name);
+          infowindow.open(map, this);
+        });
+      }
+
+      function placeCustomMarker(location) {
+        if (customMarker) {
+          customMarker.setMap(null);
+        }
+
+        customMarker = new google.maps.Marker({
+          position: location,
+          map: map,
+          draggable: true
+        });
+
+        loadRestaurants(location);
+
+        customMarker.addListener('dragend', function(event) {
+          loadRestaurants(event.latLng);
+        });
+
+        customMarker.addListener('dblclick', function() {
+          customMarker.setMap(null);
+          navigator.geolocation.getCurrentPosition(function(position) {
+            var pos = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            loadRestaurants(pos);
+          });
+        });
+      }
+    </script>
+  </head>
+  <body onload="initMap()">
+    <h1>Restaurant Finder</h1>
+    <div id="map" style="height: 500px; width: 100%;"></div>
+    <div id="legend">
+      <h3>Price Level Legend</h3>
+      <div><span style="background-color: red; width: 24px; height: 24px; display: inline-block;"></span> Above $50</div>
+      <div><span style="background-color: blue; width: 24px; height: 24px; display: inline-block;"></span> $20-$50</div>
+      <div><span style="background-color: green; width: 24px; height: 24px; display: inline-block;"></span> Below $20</div>
+    </div>
+  </body>
+</html>
